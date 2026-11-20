@@ -72,21 +72,26 @@ set_target_properties(tirtc_esp32s3_prebuilt PROPERTIES
 )
 
 # start-group/end-group 解决预编译 SDK 与 ESP-IDF 静态库之间的循环符号依赖。
-add_library(tirtc_esp32s3_link_bundle INTERFACE)
-target_link_libraries(tirtc_esp32s3_link_bundle INTERFACE
+# [merge-wechat] mbedtls 内部目标名随 IDF 版本变化（5.x: mbedcrypto/everest/p256m；
+# 6.x: tfpsacrypto 等），改为按目标存在性动态收集，缺哪代就跳过哪代。
+set(TIRTC_LINK_LIBS
     "-Wl,--start-group"
     tirtc_esp32s3_prebuilt
     $<TARGET_FILE:__idf_lwip>
     $<TARGET_FILE:__idf_mbedtls>
-    $<TARGET_FILE:mbedcrypto>
-    $<TARGET_FILE:mbedtls>
-    $<TARGET_FILE:mbedx509>
-    $<TARGET_FILE:everest>
-    $<TARGET_FILE:p256m>
+)
+foreach(_t IN ITEMS mbedcrypto mbedtls mbedx509 everest p256m tfpsacrypto)
+    if(TARGET ${_t})
+        list(APPEND TIRTC_LINK_LIBS $<TARGET_FILE:${_t}>)
+    endif()
+endforeach()
+list(APPEND TIRTC_LINK_LIBS
     $<TARGET_FILE:__idf_hal>
     $<TARGET_FILE:__idf_soc>
     "-Wl,--end-group"
 )
+add_library(tirtc_esp32s3_link_bundle INTERFACE)
+target_link_libraries(tirtc_esp32s3_link_bundle INTERFACE ${TIRTC_LINK_LIBS})
 target_link_libraries(${COMPONENT_LIB} INTERFACE tirtc_esp32s3_link_bundle)
 
 # Keep the SDK task-stack compatibility boundary local to this component.
