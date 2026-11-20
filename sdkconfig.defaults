@@ -91,5 +91,5 @@ CONFIG_NEWLIB_NANO_FORMAT=n
 # ==== 平台 MQTT 信令任务栈（参考工程实践）====
 CONFIG_MQTT_TASK_STACK_SIZE=8192
 
-# ==== OTA 指向 tenclass 官方服务器（xiaozhi 原版）====
-CONFIG_OTA_URL="https://api.tenclass.net/xiaozhi/ota/"
+# ==== OTA 指向私有服务器：官方服务器固件无微信通话，禁止自动升级覆盖 ====
+CONFIG_OTA_URL="https://xz.aigcuniversity.com/xiaozhi/ota/"
