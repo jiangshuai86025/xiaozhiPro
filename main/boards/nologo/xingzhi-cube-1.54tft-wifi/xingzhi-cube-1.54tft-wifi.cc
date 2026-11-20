@@ -84,7 +84,21 @@ private:
                 EnterWifiConfigMode();
                 return;
             }
+            // 微信通话交互（单击=接听/挂断，比双击可靠；含接通过渡期，
+            // 同时避免此时 ToggleChat 打开 AI 音频通道干扰通话）
+            if (app.IsInWechatCall() || app.GetDeviceState() == kDeviceStateInCall) {
+                app.HandleCallButton();
+                return;
+            }
             app.ToggleChatState();
+        });
+        // 微信语音通话：双击 BOOT 键接听来电 / 挂断通话（快速双击仍生效）
+        boot_button_.OnDoubleClick([this]() {
+            power_save_timer_->WakeUp();
+            auto& app = Application::GetInstance();
+            if (app.IsInWechatCall()) {
+                app.HandleCallButton();
+            }
         });
 
         volume_up_button_.OnClick([this]() {

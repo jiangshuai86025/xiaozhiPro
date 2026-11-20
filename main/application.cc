@@ -11,6 +11,7 @@
 #include "system_info.h"
 #include "text_glyph_payload.h"
 #include "websocket_protocol.h"
+#include "wechat_call/call_session.h"
 
 #include <driver/gpio.h>
 #include <esp_log.h>
@@ -62,6 +63,15 @@ Application::~Application() {
 }
 
 bool Application::SetDeviceState(DeviceState state) { return state_machine_.TransitionTo(state); }
+
+void Application::HandleCallButton() {
+    wechat_call::CallSession::GetInstance().OnCallButton();
+}
+
+bool Application::IsInWechatCall() const {
+    auto& cs = wechat_call::CallSession::GetInstance();
+    return cs.InCall() || cs.IsRinging();
+}
 
 void Application::Initialize() {
     auto& board = Board::GetInstance();
@@ -183,6 +193,41 @@ void Application::Initialize() {
     display->UpdateStatusBar(true);
 }
 
+// 微信语音呼叫：STT 文本关键词触发（不依赖 LLM，稳定、离线可用）。
+// 支持：打电话给X / 呼叫X / 拨打X / 打给X / 给X打电话。命中时 contact_out 为解析到的联系人显示名。
+static bool MatchWechatCallCommand(const std::string& text, std::string& contact_out) {
+    auto trim = [](const std::string& s) -> std::string {
+        size_t b = s.find_first_not_of(" \t\r\n，。！？、,.;:!?\"'（）()");
+        size_t e = s.find_last_not_of(" \t\r\n，。！？、,.;:!?\"'（）()");
+        if (b == std::string::npos) return "";
+        return s.substr(b, e - b + 1);
+    };
+    // 关键词可在句中（兼容“小智 打电话给X”这类带唤醒词前缀的识别结果）
+    static const char* kws[] = {"打电话给", "打给", "呼叫", "拨打"};
+    for (const char* p : kws) {
+        std::string kw(p);
+        size_t pos = text.find(kw);
+        if (pos != std::string::npos) {
+            std::string name = trim(text.substr(pos + kw.size()));
+            if (!name.empty()) { contact_out = name; return true; }
+        }
+    }
+    // 后缀形式：给X打电话 / 替X拨打
+    size_t pos = text.find("打电话");
+    if (pos != std::string::npos && pos > 0) {
+        std::string pre = text.substr(0, pos);
+        static const std::string kGive("给");
+        static const std::string kInstead("替");
+        if (!pre.empty()) {
+            if (pre.rfind(kGive, 0) == 0) pre = pre.substr(kGive.size());
+            else if (pre.rfind(kInstead, 0) == 0) pre = pre.substr(kInstead.size());
+        }
+        std::string name = trim(pre);
+        if (!name.empty()) { contact_out = name; return true; }
+    }
+    return false;
+}
+
 void Application::Run() {
     // Set the priority of the main task to 10
     vTaskPrioritySet(nullptr, 10);
@@ -249,7 +294,10 @@ void Application::Run() {
 
         if (bits & MAIN_EVENT_SEND_AUDIO) {
             while (auto packet = audio_service_.PopPacketFromSendQueue()) {
-                if (protocol_ && !protocol_->SendAudio(std::move(packet))) {
+                if (wechat_call::CallSession::GetInstance().InCall()) {
+                    // 微信通话激活：麦克风 Opus 包改道 TiRTC（通话音频桥）
+                    wechat_call::CallSession::GetInstance().SendAudioPacket(std::move(packet));
+                } else if (protocol_ && !protocol_->SendAudio(std::move(packet))) {
                     // Drop the remaining packets. Leaving them in the queue would
                     // stall the Opus codec task (it waits for queue space), which in
                     // turn deadlocks the whole audio input pipeline, as no new
@@ -739,12 +787,28 @@ void Application::InitializeProtocol() {
                     glyphs.clear();
                 }
                 ESP_LOGI(TAG, ">> %s", text->valuestring);
-                Schedule([display, message = std::string(text->valuestring),
-                          glyphs = std::move(glyphs), bpp]() {
-                    display->AddTextGlyphs(glyphs, bpp);
-                    display->SetChatMessage("user", message.c_str());
-                });
-                current_stt_text_ += std::string(text->valuestring) + " ";
+                std::string stt(text->valuestring);
+                std::string contact;
+                if (MatchWechatCallCommand(stt, contact)) {
+                    ESP_LOGI(TAG, "wechat call trigger: contact='%s'", contact.c_str());
+                    Schedule([this, contact]() {
+                        bool started = wechat_call::CallSession::GetInstance().StartOutbound(contact);
+                        if (started && GetDeviceState() == kDeviceStateSpeaking) {
+                            AbortSpeaking(kAbortReasonWakeWordDetected);
+                        }
+                    });
+                    Schedule([display, message = stt, glyphs = std::move(glyphs), bpp]() {
+                        display->AddTextGlyphs(glyphs, bpp);
+                        display->SetChatMessage("user", ("呼叫 " + message).c_str());
+                    });
+                } else {
+                    Schedule([display, message = stt,
+                              glyphs = std::move(glyphs), bpp]() {
+                        display->AddTextGlyphs(glyphs, bpp);
+                        display->SetChatMessage("user", message.c_str());
+                    });
+                }
+                current_stt_text_ += stt + " ";
             }
         } else if (strcmp(type->valuestring, "llm") == 0) {
             auto emotion = cJSON_GetObjectItem(root, "emotion");
@@ -1191,6 +1255,13 @@ void Application::HandleStateChangedEvent() {
             audio_service_.EnableWakeWordDetection(true);
             break;
         }
+        case kDeviceStateInCall:
+            // 微信通话进行中：保持麦克风采集(AFE)开启、关闭唤醒词，且不会被
+            // listening/speaking/idle 切换掐断上行音频。下行动音由 OnAudio 推解码队列。
+            display->SetEmotion("neutral");
+            audio_service_.EnableVoiceProcessing(true);
+            audio_service_.EnableWakeWordDetection(false);
+            break;
         default:
             // Do nothing
             break;

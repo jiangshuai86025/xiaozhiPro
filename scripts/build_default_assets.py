@@ -1072,6 +1072,13 @@ def main():
                     "command": custom_wake_word_config['wake_word'],
                     "text": custom_wake_word_config['display'],
                     "action": "wake"
+                },
+                {
+                    # 双唤醒词：保留原"你好小智"作为第二命令（MultiNet 多命令并存）
+                    # 拼音不带声调（esp-sr 2.3.0 词表无声调）
+                    "command": "ni hao xiao zhi",
+                    "text": "你好小智",
+                    "action": "wake"
                 }
             ]
         }

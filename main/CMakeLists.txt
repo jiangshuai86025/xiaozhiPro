@@ -43,9 +43,11 @@ set(SOURCES "audio/audio_codec.cc"
             "device_state_machine.cc"
             "assets.cc"
             "main.cc"
+            "wechat_call/wechat_call_service.cc"
+            "wechat_call/call_session.cc"
             )
 
-set(INCLUDE_DIRS "." "display" "display/lvgl_display" "display/lvgl_display/jpg" "audio" "audio/demuxer" "protocols")
+set(INCLUDE_DIRS "." "wechat_call" "display" "display/lvgl_display" "display/lvgl_display/jpg" "audio" "audio/demuxer" "protocols")
 
 # Add board common files
 list(APPEND SOURCES
@@ -784,7 +786,8 @@ elseif(CONFIG_BOARD_TYPE_XINGZHI_CUBE_1_54TFT_WIFI)
     set(BOARD_DIR "nologo/xingzhi-cube-1.54tft-wifi")
     set(BUILTIN_TEXT_FONT font_noto_sans_basic_20_4)
     set(BUILTIN_ICON_FONT font_material_symbols_20_4)
-    set(DEFAULT_EMOJI_COLLECTION noto-color-emoji_128)
+    # emoji 降为 64 版：为 assets 里的 mn7_cn MultiNet 模型腾出容量（128 版会超出 8MB assets 分区）
+    set(DEFAULT_EMOJI_COLLECTION noto-color-emoji_64)
 elseif(CONFIG_BOARD_TYPE_XINGZHI_CUBE_1_54TFT_ML307)
     set(BOARD_DIR "nologo/xingzhi-cube-1.54tft-ml307")
     set(BUILTIN_TEXT_FONT font_noto_sans_basic_20_4)
@@ -1241,6 +1244,10 @@ idf_component_register(SRCS ${SOURCES}
                         efuse
                         bt
                         fatfs
+                        tirtc_sdk
+                        platform_client
+                        nvs_worker
+                        runtime_config
                         xiaozhi-fonts
                         ${MAIN_PRIV_REQUIRES_EXTRA}
                     )

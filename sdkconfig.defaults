@@ -76,3 +76,20 @@ CONFIG_LV_USE_WIN=n
 
 CONFIG_LV_BUILD_EXAMPLES=n
 CONFIG_LV_BUILD_DEMOS=n
+
+# ==== 微信语音通话移植（TiRTC）：ABI 契约与平台配置 ====
+# 覆盖本文件前文的 GENERATE_RUN_TIME_STATS / STATS_FORMATTING_FUNCTIONS 开关
+CONFIG_FREERTOS_HZ=1000
+CONFIG_FREERTOS_USE_TRACE_FACILITY=n
+CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS=n
+CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS=n
+
+# 必须关闭 newlib nano 格式化：platform_client 签名头用 %lld 打时间戳，
+# nano 模式不支持 64 位格式符会输出字面量 "ld"，导致平台验签 401、绑定死循环
+CONFIG_NEWLIB_NANO_FORMAT=n
+
+# ==== 平台 MQTT 信令任务栈（参考工程实践）====
+CONFIG_MQTT_TASK_STACK_SIZE=8192
+
+# ==== OTA 指向私有服务器：官方服务器固件无微信通话，禁止自动升级覆盖 ====
+CONFIG_OTA_URL="https://xz.aigcuniversity.com/xiaozhi/ota/"

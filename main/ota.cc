@@ -222,18 +222,15 @@ NetworkResult<> Ota::CheckVersion() {
     cJSON *server_time = cJSON_GetObjectItem(root, "server_time");
     if (cJSON_IsObject(server_time)) {
         cJSON *timestamp = cJSON_GetObjectItem(server_time, "timestamp");
-        cJSON *timezone_offset = cJSON_GetObjectItem(server_time, "timezone_offset");
-        
+
         if (cJSON_IsNumber(timestamp)) {
-            // 设置系统时间
+            // 设置系统时间（保持 UTC：时区由 main.cc 设置的 TZ 环境变量在
+            // localtime() 渲染时应用。服务器的 timezone_offset 不用于平移
+            // 系统时钟，否则会破坏微信通话的 token 新鲜度校验（其 iat 为
+            // UTC），且与 SNTP 校时的 UTC 时钟互相覆盖引发竞态。
             struct timeval tv;
             double ts = timestamp->valuedouble;
-            
-            // 如果有时区偏移，计算本地时间
-            if (cJSON_IsNumber(timezone_offset)) {
-                ts += (timezone_offset->valueint * 60 * 1000); // 转换分钟为毫秒
-            }
-            
+
             tv.tv_sec = (time_t)(ts / 1000);  // 转换毫秒为秒
             tv.tv_usec = (suseconds_t)((long long)ts % 1000) * 1000;  // 剩余的毫秒转换为微秒
             settimeofday(&tv, NULL);

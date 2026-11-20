@@ -350,8 +350,9 @@ def _wake_word_sdkconfig_options(
     ]
 
     if normalized == "disabled":
-        options.append("CONFIG_WAKE_WORD_DISABLED=y")
-        return normalized, options, ["CONFIG_WAKE_WORD_DISABLED"]
+        # [merge-wechat] 直通模式：不追加任何唤醒词选项，
+        # 由 sdkconfig.defaults(.esp32s3) 决定唤醒方案（本仓库默认 CustomWakeWord）。
+        return normalized, [], []
 
     if target not in _ESP_WAKE_WORD_TARGETS | _AFE_WAKE_WORD_TARGETS:
         raise ValueError(f"Wake-word selection is not supported for target {target}")

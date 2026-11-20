@@ -126,6 +126,10 @@ public:
     void PlaySound(const std::string_view& sound);
     AudioService& GetAudioService() { return audio_service_; }
     Protocol* GetProtocol() { return protocol_.get(); }  // 添加获取协议实例的方法
+    // 微信语音通话：物理按键接听/挂断（转发到 CallSession）
+    void HandleCallButton();
+    // 微信语音通话：是否处于通话中或来电振铃态（供板子按键路由判断）
+    bool IsInWechatCall() const;
     // alarm
     AlarmManager* alarm_m_ = nullptr;
     // music

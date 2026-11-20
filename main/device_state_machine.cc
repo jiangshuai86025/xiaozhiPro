@@ -19,6 +19,7 @@ static const char* const STATE_STRINGS[] = {
     "activating",
     "audio_testing",
     "alarm",
+    "in_call",
     "fatal_error",
     "invalid_state"
 };
@@ -90,13 +91,15 @@ bool DeviceStateMachine::IsValidTransition(DeviceState from, DeviceState to) con
             // Can go to speaking or idle
             return to == kDeviceStateSpeaking ||
                    to == kDeviceStateIdle ||
-                   to == kDeviceStateAlarm;
+                   to == kDeviceStateAlarm ||
+                   to == kDeviceStateInCall;
 
         case kDeviceStateSpeaking:
             // Can go to listening or idle
             return to == kDeviceStateListening ||
                    to == kDeviceStateIdle||
-                   to == kDeviceStateAlarm;
+                   to == kDeviceStateAlarm ||
+                   to == kDeviceStateInCall;
 
         case kDeviceStateNotifying:
             return to == kDeviceStateIdle;
@@ -107,6 +110,10 @@ bool DeviceStateMachine::IsValidTransition(DeviceState from, DeviceState to) con
 
         case kDeviceStateAlarm:
             // 可以从alarm转到idle（用户取消）
+            return to == kDeviceStateIdle;
+
+        case kDeviceStateInCall:
+            // 微信语音通话专用态：通话中只允许回到 idle（挂断/异常结束）
             return to == kDeviceStateIdle;
 
         default:
