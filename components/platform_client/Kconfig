@@ -1,0 +1,11 @@
+menu "XiaoTai Platform (星智CUBE 移植)"
+
+config XIAOTAI_DISCOVERY_URL
+    string "ThingConnect service discovery URL"
+    default "http://ep-open.tangeopen.com/services"
+
+config XIAOTAI_PORTAL_URL
+    string "Device binding portal URL (display only)"
+    default "https://xiaotai.chat/"
+
+endmenu
