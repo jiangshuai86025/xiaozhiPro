@@ -21,7 +21,7 @@ endforeach()
 idf_component_register(
     SRCS "src/tirtc_task_stack_policy.c"
     INCLUDE_DIRS "${TIRTC_SDK_DIR}/include"
-    REQUIRES freertos esp_http_client esp_netif esp_timer hal json lwip mbedtls soc
+    REQUIRES freertos esp_http_client esp_netif esp_timer hal cjson lwip mbedtls soc
     # Keep the linker wrapper even though no application object references it
     # directly; TiRTC's prebuilt archive is the sole caller after --wrap.
     WHOLE_ARCHIVE

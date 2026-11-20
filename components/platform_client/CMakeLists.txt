@@ -1,7 +1,7 @@
 idf_component_register(
     SRCS "src/platform_client.c" "src/platform_http_trace.c"
     INCLUDE_DIRS "include"
-    REQUIRES esp_http_client esp_netif mqtt mbedtls json
+    REQUIRES esp_http_client esp_netif mqtt mbedtls cjson
     PRIV_REQUIRES esp-tls esp_timer tcp_transport lwip
 )
 
